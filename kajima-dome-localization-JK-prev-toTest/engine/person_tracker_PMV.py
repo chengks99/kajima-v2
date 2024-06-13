@@ -68,6 +68,7 @@ class FishEyeTracker:
         initialize the next unique object ID to keep track of mapping 
         a given object ID to its centroid 
         """
+        self.flag = False
         self.body_details = body_details
         # Initializing face matching module
         # self.LMK_VISIBILITY_THRESHOLD = 0.8
@@ -112,6 +113,7 @@ class FishEyeTracker:
         self.empty_tracks = copy.deepcopy(self.tracks)
         self.empty_body = copy.deepcopy(self.body_database)
         logging.debug("FishEyeTracker Initialized body engine")
+        self.flag = True
 
     def body_updates (self, body_details):
         self.body_details = body_details

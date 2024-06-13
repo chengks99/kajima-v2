@@ -73,6 +73,15 @@ class Camera(Adaptor):
             if 'sqlquery' in ch:
                 self.process_sql_result(msg)
                 self.run_init()
+            if ch == 'person.body.updates':
+                # print('[{}]: channel: {}'.format(self.args.id, ch))
+                print("Received Body Updates")
+                try:
+                    self.cur_engine.person_body_updates(msg)
+                except:
+                    pass
+            if ch == 'http.dat.int':
+                self.process_env_data(msg)                
 
     # container for kajima camera
     def run (self):
@@ -124,6 +133,18 @@ class Camera(Adaptor):
         )
         self.stream.start()
         logging.debug('Camera Stream module initialized...')
+
+    # process env data
+    def process_env_data (self, msg):
+        _dataMsg = msg.get('data', {})
+        _data = _dataMsg.get(str(self.devid), {})
+        if not _data == {}:
+            _temp = _data.get('T', {}).get('value', -1)
+            _hum = _data.get('H', {}).get('value', -1)
+            if _temp > 0 and _hum > 0:
+                if self.cur_engine.flag:
+                    logging.debug('Env. data T: {}, H: {}'.format(_temp, _hum))
+                    self.cur_engine.set_env_var(_temp, _hum)
     
     # thread loop for process image and result publish
     def cam_run (self):
