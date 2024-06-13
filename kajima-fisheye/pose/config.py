@@ -17,18 +17,18 @@ from easydict import EasyDict as edict
 
 config = edict()
 
-config.OUTPUT_DIR = ''
-config.LOG_DIR = ''
-config.DATA_DIR = ''
-config.GPUS = '0'
-config.WORKERS = 4
-config.PRINT_FREQ = 20
+# config.OUTPUT_DIR = ''
+# config.LOG_DIR = ''
+# config.DATA_DIR = ''
+# config.GPUS = '0'
+# config.WORKERS = 4
+# config.PRINT_FREQ = 20
 
-# Cudnn related params
-config.CUDNN = edict()
-config.CUDNN.BENCHMARK = True
-config.CUDNN.DETERMINISTIC = False
-config.CUDNN.ENABLED = True
+# # Cudnn related params
+# config.CUDNN = edict()
+# config.CUDNN.BENCHMARK = True
+# config.CUDNN.DETERMINISTIC = False
+# config.CUDNN.ENABLED = True
 
 # pose_resnet related params
 POSE_RESNET = edict()
@@ -57,74 +57,76 @@ config.MODEL.EXTRA = MODEL_EXTRAS[config.MODEL.NAME]
 
 config.MODEL.STYLE = 'pytorch'
 
-config.LOSS = edict()
-config.LOSS.USE_TARGET_WEIGHT = True
+# config.LOSS = edict()
+# config.LOSS.USE_TARGET_WEIGHT = True
 
-# DATASET related params
-config.DATASET = edict()
-config.DATASET.ROOT = ''
-config.DATASET.DATASET = 'mpii'
-config.DATASET.TRAIN_SET = 'train'
-config.DATASET.TEST_SET = 'valid'
-config.DATASET.DATA_FORMAT = 'jpg'
-config.DATASET.HYBRID_JOINTS_TYPE = ''
-config.DATASET.SELECT_DATA = False
+# # DATASET related params
+# config.DATASET = edict()
+# config.DATASET.ROOT = ''
+# config.DATASET.DATASET = 'mpii'
+# config.DATASET.TRAIN_SET = 'train'
+# config.DATASET.TEST_SET = 'valid'
+# config.DATASET.DATA_FORMAT = 'jpg'
+# config.DATASET.HYBRID_JOINTS_TYPE = ''
+# config.DATASET.SELECT_DATA = False
 
-# training data augmentation
-config.DATASET.FLIP = True
-config.DATASET.SCALE_FACTOR = 0.25
-config.DATASET.ROT_FACTOR = 30
+# # training data augmentation
+# config.DATASET.FLIP = True
+# config.DATASET.SCALE_FACTOR = 0.25
+# config.DATASET.ROT_FACTOR = 30
 
-# train
-config.TRAIN = edict()
+# # train
+# config.TRAIN = edict()
 
-config.TRAIN.LR_FACTOR = 0.1
-config.TRAIN.LR_STEP = [90, 110]
-config.TRAIN.LR = 0.001
+# config.TRAIN.LR_FACTOR = 0.1
+# config.TRAIN.LR_STEP = [90, 110]
+# config.TRAIN.LR = 0.001
 
-config.TRAIN.OPTIMIZER = 'adam'
-config.TRAIN.MOMENTUM = 0.9
-config.TRAIN.WD = 0.0001
-config.TRAIN.NESTEROV = False
-config.TRAIN.GAMMA1 = 0.99
-config.TRAIN.GAMMA2 = 0.0
+# config.TRAIN.OPTIMIZER = 'adam'
+# config.TRAIN.MOMENTUM = 0.9
+# config.TRAIN.WD = 0.0001
+# config.TRAIN.NESTEROV = False
+# config.TRAIN.GAMMA1 = 0.99
+# config.TRAIN.GAMMA2 = 0.0
 
-config.TRAIN.BEGIN_EPOCH = 0
-config.TRAIN.END_EPOCH = 140
+# config.TRAIN.BEGIN_EPOCH = 0
+# config.TRAIN.END_EPOCH = 140
 
-config.TRAIN.RESUME = False
-config.TRAIN.CHECKPOINT = ''
+# config.TRAIN.RESUME = False
+# config.TRAIN.CHECKPOINT = ''
 
-config.TRAIN.BATCH_SIZE = 32
-config.TRAIN.SHUFFLE = True
+# config.TRAIN.BATCH_SIZE = 32
+# config.TRAIN.SHUFFLE = True
 
 # testing
 config.TEST = edict()
 
 # size of images for each device
-config.TEST.BATCH_SIZE = 32
+# config.TEST.BATCH_SIZE = 32
+
 # Test Model Epoch
 config.TEST.FLIP_TEST = False
 config.TEST.POST_PROCESS = True
 config.TEST.SHIFT_HEATMAP = True
 
 config.TEST.USE_GT_BBOX = False
-# nms
-config.TEST.OKS_THRE = 0.5
-config.TEST.IN_VIS_THRE = 0.0
-config.TEST.COCO_BBOX_FILE = ''
-config.TEST.BBOX_THRE = 1.0
-config.TEST.MODEL_FILE = ''
-config.TEST.IMAGE_THRE = 0.0
-config.TEST.NMS_THRE = 1.0
 
-# debug
-config.DEBUG = edict()
-config.DEBUG.DEBUG = False
-config.DEBUG.SAVE_BATCH_IMAGES_GT = False
-config.DEBUG.SAVE_BATCH_IMAGES_PRED = False
-config.DEBUG.SAVE_HEATMAPS_GT = False
-config.DEBUG.SAVE_HEATMAPS_PRED = False
+# # nms
+# config.TEST.OKS_THRE = 0.5
+# config.TEST.IN_VIS_THRE = 0.0
+# config.TEST.COCO_BBOX_FILE = ''
+# config.TEST.BBOX_THRE = 1.0
+# config.TEST.MODEL_FILE = ''
+# config.TEST.IMAGE_THRE = 0.0
+# config.TEST.NMS_THRE = 1.0
+
+# # debug
+# config.DEBUG = edict()
+# config.DEBUG.DEBUG = False
+# config.DEBUG.SAVE_BATCH_IMAGES_GT = False
+# config.DEBUG.SAVE_BATCH_IMAGES_PRED = False
+# config.DEBUG.SAVE_HEATMAPS_GT = False
+# config.DEBUG.SAVE_HEATMAPS_PRED = False
 
 
 def _update_dict(k, v):
@@ -158,7 +160,7 @@ def _update_dict(k, v):
 def update_config(config_file):
     exp_config = None
     with open(config_file) as f:
-        exp_config = edict(yaml.load(f, Loader=yaml.FullLoader))
+        exp_config = edict(yaml.load(f))
         for k, v in exp_config.items():
             if k in config:
                 if isinstance(v, dict):
@@ -182,24 +184,24 @@ def gen_config(config_file):
         yaml.dump(dict(cfg), f, default_flow_style=False)
 
 
-def update_dir(model_dir, log_dir, data_dir):
-    if model_dir:
-        config.OUTPUT_DIR = model_dir
+# def update_dir(model_dir, log_dir, data_dir):
+#     if model_dir:
+#         config.OUTPUT_DIR = model_dir
 
-    if log_dir:
-        config.LOG_DIR = log_dir
+#     if log_dir:
+#         config.LOG_DIR = log_dir
 
-    if data_dir:
-        config.DATA_DIR = data_dir
+#     if data_dir:
+#         config.DATA_DIR = data_dir
 
-    config.DATASET.ROOT = os.path.join(
-            config.DATA_DIR, config.DATASET.ROOT)
+#     config.DATASET.ROOT = os.path.join(
+#             config.DATA_DIR, config.DATASET.ROOT)
 
-    config.TEST.COCO_BBOX_FILE = os.path.join(
-            config.DATA_DIR, config.TEST.COCO_BBOX_FILE)
+#     config.TEST.COCO_BBOX_FILE = os.path.join(
+#             config.DATA_DIR, config.TEST.COCO_BBOX_FILE)
 
-    config.MODEL.PRETRAINED = os.path.join(
-            config.DATA_DIR, config.MODEL.PRETRAINED)
+#     config.MODEL.PRETRAINED = os.path.join(
+#             config.DATA_DIR, config.MODEL.PRETRAINED)
 
 
 def get_model_name(cfg):

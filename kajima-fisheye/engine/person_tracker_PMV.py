@@ -68,7 +68,6 @@ class FishEyeTracker:
         initialize the next unique object ID to keep track of mapping 
         a given object ID to its centroid 
         """
-        self.flag = False
         self.body_details = body_details
         # Initializing face matching module
         # self.LMK_VISIBILITY_THRESHOLD = 0.8
@@ -92,9 +91,9 @@ class FishEyeTracker:
             logging.warn("Empty body database")
             
         self.nextObjectID = 0
-        # self.track_age = 30
-        self.track_age = 5
-        self.non_matched_age = 3
+        self.track_age = 30
+        # self.track_age = 5
+        self.non_matched_age = 15 #3
         self.unk_count = 0
         
         #thermal comfort model
@@ -113,7 +112,6 @@ class FishEyeTracker:
         self.empty_tracks = copy.deepcopy(self.tracks)
         self.empty_body = copy.deepcopy(self.body_database)
         logging.debug("FishEyeTracker Initialized body engine")
-        self.flag = True
 
     def body_updates (self, body_details):
         self.body_details = body_details
@@ -228,7 +226,7 @@ class FishEyeTracker:
             avg_feats[i, :] = avg_feats[i, :]/length[i]
         return avg_feats
 
-    def __increment_track_age(self):
+    def __increment_track_age_Joe(self):
         rows_to_update = self.tracks.loc[self.tracks['age'] >= 0]
         idx_to_update = rows_to_update.index.tolist()
         # Reset the body database
@@ -241,7 +239,7 @@ class FishEyeTracker:
         for idx in idx_to_update:
             self.tracks.at[idx, 'age'] += 1
 
-    def __delete_old_tracks(self):
+    def __delete_old_tracks_Joe(self):
         """
         Delete old track
         """
@@ -260,6 +258,21 @@ class FishEyeTracker:
         else :
             logging.debug(formatted_time)
 
+    def __increment_track_age(self):
+        rows_to_update = self.tracks.loc[self.tracks['age'] >= 0]
+        idx_to_update = rows_to_update.index.tolist()
+        for idx in idx_to_update:
+            self.tracks.at[idx, 'age'] += 1
+
+    def __delete_old_tracks(self):
+        """
+        Delete old track
+        """
+        rows_to_del = self.tracks.loc[self.tracks['age'] > self.track_age]
+        idx_to_del = rows_to_del.index.tolist()
+        if len(idx_to_del)>0:
+            self.tracks = self.tracks.drop(index=idx_to_del)
+            logging.debug("Delete old track {}".format(idx_to_del))
  
     def __body_match(self, features, threshold=None):
         """
@@ -319,8 +332,9 @@ class FishEyeTracker:
 
             body_indices, body_labels, person_details = self.__body_match(bodyfeatures)
 
-            # print(body_indices, body_labels)
-
+            # logging.info(body_indices)
+            # logging.info(body_labels)
+            # exit()
             for i, idx in enumerate(idx_to_match):
                 if body_indices[i]>=0:
                     if body_labels[i] in self.tracks['sub_id'].values:
@@ -352,24 +366,35 @@ class FishEyeTracker:
         half_h = img_dim[0]/2
         half_w = img_dim[1]/2
 
-         # obtain box coordinates in (x,y,w,h) format and ious w.r.t. other boxes
         area = np.zeros((len(rects), 1), dtype="float")
         dist = np.zeros((len(rects), 1), dtype="float")
-        bboxs =  np.zeros((len(rects), 4), dtype="float")
+        bboxs =  np.zeros((len(rects), 5), dtype="float")
 
-        for (i, (cX, cY, width, height)) in enumerate(rects):
-            # inputCentroids[i] = (int(cX), int(cY))
-            area[i] = int(width*height)
-            #distance from image center
-            dist[i] = abs(half_h-cY)+abs(half_w-cX)
-            #cxwh -> x1y1x2y2 format
-            bboxs[i] = (cX-width/2, cY-height/2, cX+width/2, cY+height/2)
+        # obtain box coordinates in (x,y,w,h) format and ious w.r.t. other boxes
+        # for (i, (cX, cY, width, height)) in enumerate(rects):
+        #     # inputCentroids[i] = (int(cX), int(cY))
+        #     area[i] = int(width*height)
+        #     #distance from image center
+        #     dist[i] = abs(half_h-cY)+abs(half_w-cX)
+        #     #cxwh -> x1y1x2y2 format
+        #     bboxs[i] = (cX-width/2, cY-height/2, cX+width/2, cY+height/2)
 
         # for i in range(0, len(rects)):
         #     cx, cy, w, h = rects[i]
         #     w = w/2
         #     h = h/2
         #     bboxs[i] = (cx-w, cy-h, cx+w, cy+h)
+
+        # obtain box coordinates in (x,y,w,h) format and ious w.r.t. other boxes
+        for i in range(len(rects)):
+            x1,y1,x2,y2,tr = rects[i]
+            width = x2-x1
+            height = y2-y1
+            cX = (x1+x2)/2.
+            cY = (y1+y2)/2.
+            area[i] = int(width*height)
+            dist[i] = abs(half_h-cY)+abs(half_w-cX)
+            bboxs[i] = rects[i]
 
         iou = np.full(len(rects), 0.)
         for i in range(0, len(bboxs)):
@@ -394,6 +419,16 @@ class FishEyeTracker:
         #     labels = []
         #     for i in range(len(rects)):
         #         labels.append("UnK")
+
+        if rects is None:
+            #increment track age of existing tracks
+            self.__increment_track_age()
+            # delete old tracks
+            self.__delete_old_tracks()
+
+            # return trackids
+            return None, None, None, None, None
+
 
         #load updated body database
         if os.path.isfile(self.body_db_file): #not self.body_db_empty_flag:
@@ -425,10 +460,12 @@ class FishEyeTracker:
         subids = [None] * len(rects) # np.full(len(rects), -1) #[] #np.zeros((len(rects), 1), dtype="int")
         trackids = np.full(len(rects), -1) #[]
         pmvs = [0.] * len(rects) #np.full(len(rects), 0) #[]
+        clothids = [None] * len(rects)
 
         # no tracking objects so we need to
         # try to match the input features to database and add to tracking table
-        if self.nextObjectID == 0:
+        # if self.nextObjectID == 0:
+        if len(self.tracks)==0:
             body_indices, body_labels, person_details = self.__body_match(features)
             matching_score = -1
             for i in range(len(features)):
@@ -453,6 +490,8 @@ class FishEyeTracker:
                     logging.debug('Fisheye update track not added, norm is low, red')
                     subids[i] = "UnK"
                     trackids[i] = -1
+                
+                clothids[i] = iclo[i]
 
         # otherwise, try to match the input features to existing object
         else:
@@ -463,6 +502,7 @@ class FishEyeTracker:
             avg_feats = self.__get_avg_feat()
             track_id = np.stack(self.tracks['track_id'].tolist())
             sub_id = np.stack(self.tracks['sub_id'].tolist())
+            cloth_id = np.stack(self.tracks['cloth_att'].tolist())
             # person_details = np.stack(self.tracks['person_details'].tolist())
             # person_details = [-1]*len(rects) 
             
@@ -518,6 +558,7 @@ class FishEyeTracker:
                     subids[i] = sub_id[ct_index[i]]
                     trackids[i] = track_id[ct_index[i]]
                     pmvs[i] = pmv #person_details[ct_index[i]]
+                    clothids[i] = cloth_id[ct_index[i]]
                 elif ct_index[i] == last_index[i] and last_index[i] != -1:
                     #print(colored("ltUPDATING TRACK {}".format(track_id[ct_index[i]]), "green"))
                     # track_age = self.tracks.at[track_id[ct_index[i]], 'age']
@@ -530,6 +571,7 @@ class FishEyeTracker:
                     subids[i] = sub_id[ct_index[i]]
                     trackids[i] = track_id[ct_index[i]]
                     pmvs[i] = pmv #person_details[ct_index[i]]
+                    clothids[i] = cloth_id[ct_index[i]]
                 elif ct_index[i] == avg_index[i] and avg_index[i] != -1:
                     #print(colored("avUPDATING TRACK {}".format(track_id[ct_index[i]]), "green"))
                     # track_age = self.tracks.at[track_id[ct_index[i]], 'age']
@@ -542,6 +584,7 @@ class FishEyeTracker:
                     subids[i] = sub_id[ct_index[i]]
                     trackids[i] = track_id[ct_index[i]]
                     pmvs[i] = pmv #person_details[ct_index[i]]
+                    clothids[i] = cloth_id[ct_index[i]]
                 elif avg_index[i] == last_index[i] and last_index[i] != -1:
                     #print(colored("UPDATING TRACK {}".format(track_id[avg_index[i]]), "green"))
                     pmv = self.__update_track(track_id[avg_index[i]], bboxs[i], lmks[i], lmk_confs[i], features[i], iou[i], iclo[i], actions[i])
@@ -549,6 +592,7 @@ class FishEyeTracker:
                     subids[i] = sub_id[avg_index[i]]
                     trackids[i] = track_id[avg_index[i]]
                     pmvs[i] = pmv #person_details[ct_index[i]]
+                    clothids[i] = cloth_id[avg_index[i]]
                 elif ct_scores[i]>self.iou_threshold and iou[i]<self.iou_threshold:
                     #print(colored("nonoverlapUPDATING TRACK {}".format(track_id[ct_index[i]]), "green"))
                     pmv = self.__update_track(track_id[ct_index[i]], bboxs[i], lmks[i], lmk_confs[i], features[i], iou[i], iclo[i], actions[i])
@@ -556,6 +600,7 @@ class FishEyeTracker:
                     subids[i] = sub_id[ct_index[i]]
                     trackids[i] = track_id[ct_index[i]]
                     pmvs[i] = pmv #person_details[ct_index[i]]
+                    clothids[i] = cloth_id[ct_index[i]]
                 # elif avg_scores[i]>self.tr_threshold:
                 #     print(colored("avUPDATING TRACK {}".format(last_index[i]), "green"))
                 #     self.__update_track(avg_index[i], dist[i], bboxs[i], lmks[i], lmk_confs[i], features[i], iou[i], area[i])
@@ -584,6 +629,7 @@ class FishEyeTracker:
                         subids[i] = "UnK"
                         trackids[i] = -1
 
+                    clothids[i] = iclo[i]
                 
                 #print(trackids[i], subids[i])
                 logging.debug('Fisheye update track ID: {}, Sub ID: {}'.format(trackids[i], subids[i]))
@@ -655,7 +701,7 @@ class FishEyeTracker:
         self.__delete_old_tracks()
 
         # return trackids
-        return trackids, subids, pmvs, matching_score
+        return trackids, subids, pmvs, matching_score, clothids
 
 def MatchBoxes(inBoxes, dbBoxes, iou_thresh):
     """
@@ -924,7 +970,7 @@ class ThermalComfort():
     def set_env_var (self, env_var):
         logging.debug('Update env. data: {}'.format(env_var))
         self.env_variables = env_var
-
+        
     def v_relative(self, v, met):
         """Estimates the relative air speed which combines the average air speed of
         the space plus the relative air speed caused by the body movement. Vag is assumed to
@@ -956,8 +1002,10 @@ class ThermalComfort():
         modelip = pd.DataFrame([[iclo, met, vr, self.env_variables['rh'], 
                                 self.env_variables['tdb'], self.env_variables['tr'],
                                 p['age'], p['gender'], p['race']]], 
+                                # columns = [['Clo', 'Met', 'Air velocity (m/s)', 'Relative humidity (%)', 'Air temperature (�C)', 'Radiant temperature (�C)', 'Age', 'Sex', 'Race']]
                             columns=['gtClo', 'gtMet', 'gtAS', 'gtRelHum','gtTA', 'gtRT',
                                      'Age', 'Gender', 'Race'])
+
         
         pmv = self.pmv_estimator.predict(modelip)[0]
         #print("PMV ", iclo, person_detail, met, pmv)

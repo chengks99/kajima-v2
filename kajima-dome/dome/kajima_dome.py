@@ -104,29 +104,24 @@ class Dome(Adaptor):
                 # logging.debug('[{}]: channel: {}'.format(self.args.id, ch))
                 self.process_sql_result(msg)
                 self.run_init()
-            elif ch == 'person.face.updates':
+            if ch == 'person.face.updates':
                 # print('[{}]: channel: {}'.format(self.args.id, ch))
                 print("Received Face Updates")
                 try :
                     self.cur_engine.person_face_updates(msg)
                 except:
                     pass
-            elif ch == 'person.body.updates':
+            if ch == 'person.body.updates':
                 # print('[{}]: channel: {}'.format(self.args.id, ch))
                 print("Received Body Updates")
                 try:
                     self.cur_engine.person_body_updates(msg)
                 except:
                     pass
-            elif ch == 'md5.check.request':
+            if ch == 'md5.check.request':
                 self.cm5.report()
-            elif fnmatch.fnmatch(ch, 'md5.*.error'):
+            if fnmatch.fnmatch(ch, 'md5.*.error'):
                 self.cm5.sum_check_error(msg)
-            elif ch == 'http.data.int':
-                self.process_env_data(msg)
-            else:
-                logging.debug('No process for redis key: {}'.format(ch))
-            
 
     def process_sql_result (self, msg):
         if msg.get('type', '') == 'init':
@@ -134,18 +129,6 @@ class Dome(Adaptor):
             self.cam = CamHolder(self.args.id, msg.get('cam', None))
             self.floor = FloorHolder(self.args.id, msg.get('floor', None))
             self.mic = MicHolder(self.args.id, msg.get('mic', None))
-
-    # process env data
-    def process_env_data (self, msg):
-        _dataMsg = msg.get('data', {})
-        _data = _dataMsg.get(str(self.devid), {})
-        if not _data == {}:
-            _temp = _data.get('T', {}).get('value', -1)
-            _hum = _data.get('H', {}).get('value', -1)
-            if _temp > 0 and _hum > 0:
-                if self.cur_engine.flag:
-                    logging.debug('Env. data T: {}, H: {}'.format(_temp, _hum))
-                    self.cur_engine.set_env_var(_temp, _hum)
     
     def run_init (self):
         # should contain {'fvList': [{'eID', 'features}, ...]}

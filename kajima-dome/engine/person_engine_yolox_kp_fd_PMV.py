@@ -126,7 +126,6 @@ def draw_box_batch(image, bboxs, tids, face_labels, pmvs):
 
 class PersonEngine(object):
     def __init__(self, cfg_person, cfg_cam, face_details, body_details, redis_conn) -> None:
-        self.flag = False
         self.redis_conn = redis_conn
         self.face_details = face_details
         self.body_details = body_details
@@ -179,7 +178,7 @@ class PersonEngine(object):
         )
         logging.info('Feature Engine loaded ...')
 
-        self.env = { 'tr': pInfo.get('radiant_temp', 22.6), 
+        env = { 'tr': pInfo.get('radiant_temp', 22.6), 
                 'tdb': pInfo.get('room_temp', 22.6), 
                 'to': pInfo.get('room_temp', 22.6), 
                 'rh': pInfo.get('rel_humidity', 57.8), 
@@ -192,14 +191,13 @@ class PersonEngine(object):
             body_db_file=bInfo.get('body_database', ''),
             body_feat_life=bInfo.get('body_feat_life', 32400),
             pmv_model=mPath.get('pmv_model', ''),
-            env_variables=self.env,
+            env_variables=env,
             face_details=self.face_details,
             # self.body_details= = body_details,
             body_details=self.body_details,
             redis_conn=self.redis_conn
         )
         logging.info('Face body Tracker loaded ...')
-        self.flag = True
         # except Exception as e:
         #     logging.info(e)
 
@@ -211,16 +209,6 @@ class PersonEngine(object):
     def person_body_updates (self, body_details):
         self.body_details = body_details
         self.FaceBodyTracker.body_updates(body_details)
-
-    def set_env_var (self, temp, humid):
-        logging.debug('Env. data T: {}, H: {}'.format(temp, humid))
-        #env_variables =  {'tr': radiant_temp, 'tdb': temp, 
-        #                'to': temp, 'rh': humid, 'v': air_speed}
-        self.env['tdb'] = temp
-        self.env['to'] = temp
-        self.env['rh'] = humid
-        if self.FaceBodyTracker.flag:
-            self.FaceBodyTracker.set_env_var(self.env)
 
 
     def YoloxPersonBoxTrackMatchFeatureBatch(self, bgrimgs):

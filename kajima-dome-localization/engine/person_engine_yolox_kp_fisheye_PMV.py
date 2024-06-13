@@ -73,7 +73,6 @@ class PersonEngine(object):
                  pd_det_threshold=0.5, pd_nms_threshold=0.3, pd_input_resize=0, 
                  max_detected_persons=0, min_person_width=50, pr_threshold=0.3, device=-1):
         
-        self.flag = False
         self.body_details = body_details
         # self.rgb = rgb
         self.min_person_width = min_person_width
@@ -92,7 +91,7 @@ class PersonEngine(object):
         self.feature_engine = FeatureEngine(pr_model, self.LMK_VISIBILITY_THRESHOLD, device)
         logging.debug('Feature Engine loaded ...')
 
-        self.env_variables =  {'tr': radiant_temp, 'tdb': room_temp, 
+        env_variables =  {'tr': radiant_temp, 'tdb': room_temp, 
                         'to': room_temp, 'rh': rel_humidity, 'v': air_speed}
 
         #print (pr_threshold, body_db_file, pmv_model, env_variables)
@@ -100,14 +99,13 @@ class PersonEngine(object):
             pr_threshold, 
             body_db_file, 
             pmv_model, 
-            self.env_variables,
+            env_variables,
             body_details=self.body_details,
         )
         logging.debug('Body Tracker loaded ...')
 
         self.cloth_predictor = ClothPredictor(cloth_model, device)
         logging.debug('Cloth Predictor loaded')
-        self.flag = True
 
         #load action recognition model
         model_location = scriptpath.parent / 'storage/models/yolox/action_jk.pth'
@@ -137,16 +135,6 @@ class PersonEngine(object):
     def person_body_updates (self, body_details):
         self.body_details = body_details
         self.BodyTracker.body_updates(body_details)
-    
-    def set_env_var (self, temp, humid):
-        logging.debug('Env. data T: {}, H: {}'.format(temp, humid))
-        #env_variables =  {'tr': radiant_temp, 'tdb': temp, 
-        #                'to': temp, 'rh': humid, 'v': air_speed}
-        self.env_variables['tdb'] = temp
-        self.env_variables['to'] = temp
-        self.env_variables['rh'] = humid
-        if self.BodyTracker.flag:
-            self.BodyTracker.set_env_var(self.env_variables)
         
     def YoloxPersonBoxTrackMatchFeature(self, bgrimg, new_dts, lmks, lmk_confs, body_crops, body_features):
         img_dim = bgrimg.shape[:2]

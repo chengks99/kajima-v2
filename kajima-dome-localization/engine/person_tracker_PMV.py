@@ -68,7 +68,6 @@ class FishEyeTracker:
         initialize the next unique object ID to keep track of mapping 
         a given object ID to its centroid 
         """
-        self.flag = False
         self.body_details = body_details
         # Initializing face matching module
         # self.LMK_VISIBILITY_THRESHOLD = 0.8
@@ -113,13 +112,10 @@ class FishEyeTracker:
         self.empty_tracks = copy.deepcopy(self.tracks)
         self.empty_body = copy.deepcopy(self.body_database)
         logging.debug("FishEyeTracker Initialized body engine")
-        self.flag = True
 
-    def set_env_var (self, env_var):
-        self.tc_predictor.set_env_var(env_var)
-    
-    def set_env_var (self, env_var):
-        self.tc_predictor.set_env_var(env_var)
+    def body_updates (self, body_details):
+        self.body_details = body_details
+        self.body_database = Database(db_dict=self.body_details['fvList'])
 
     def save_database(self, save_file=None):
        # Commit the current self.data to a .pkl file.
@@ -919,9 +915,6 @@ class ThermalComfort():
 #        self.gen_enconding = {'Male': 1, 'Female': 0}
 #        self.race_encoding = {'Asian': 0, 'Caucasian': 1, 'Indian': 2}
 #        self.signals = SignalSmoothing()
-    def set_env_var (self, env_var):
-        logging.debug('Update env. data: {}'.format(env_var))
-        self.env_variables = env_var
 
     def v_relative(self, v, met):
         """Estimates the relative air speed which combines the average air speed of

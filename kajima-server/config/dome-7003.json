@@ -19,10 +19,10 @@
         "body_database" : "./storage/lookup/database_dome_body_front_only_personal.pkl"
     },
     "pmv_model_info": {
-        "air_speed" : 0.1,
-        "room_temp" : 22.6,
-        "radiant_temp" : 22.6,
-        "rel_humidity" : 57.8
+        "air_speed" : 0.2,
+        "room_temp" : 25,
+        "radiant_temp" : 24.5,
+        "rel_humidity" : 51.8
     },
     "loc_roi" : [1164, 2011, 1164, 2305, 1510, 2305, 1510, 2011]
 }

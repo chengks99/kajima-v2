@@ -6,4 +6,6 @@ __pycache__
 *.jpg
 *.ckpt
 *.tar
+*.pkl
+**/commonDB/
 **/storage/

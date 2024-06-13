@@ -7,8 +7,8 @@ import threading
 import datetime as dt
 import cv2
 from camera2 import CamHolder, FloorHolder, MicHolder, DetectionEngine, CameraStream
-from shapely.geometry import Polygon
-
+from shapely.geometry import Polygon,Point
+from shapely.ops import nearest_points
 scriptpath = pathlib.Path(__file__).parent.resolve()
 sys.path.append(str(scriptpath.parent / 'common'))
 from adaptor import Adaptor
@@ -19,19 +19,20 @@ import copy
 #-------------------- Extract the majority number from utility rate --------------
 
 def majority_element(nums):
-    count = 0
+    count_ = 0
     candidate = None
 
     for num in nums:
-        if count == 0:
+        if count_ == 0:
             candidate = num
-            count = 1
+            count_ = 1
         elif num == candidate:
-            count += 1
+            count_ += 1
         else:
-            count -= 1
+            count_ -= 1
 
     return candidate
+
 class BGRColor:
     WHITE   = (255, 255, 255)
     SILVER  = (192, 192, 192)
@@ -83,22 +84,40 @@ def remove_outside_bbox(ROI,dets) :
     intersect = detection_polygon.intersection(ROI_polygon).area
     detection_area = detection_polygon.area
     iou = intersect / detection_area
-    if iou >= 0.3 :
+    if iou >= 0.1 :
         deleted = 0
         return deleted
     return deleted
 
-    # image2 = cv2.rectangle(blank.copy(), (int(dets[0]),int(dets[1])), (int(dets[2]), int(dets[3])), color=(255, 0, 0), thickness=1)
+def converted_loc(ROI,loc) :    
 
-    # intersection = np.logical_and(image1, image2)
-    
-    # if intersection.any() >= 0 :
-    #     logging.debug(1)
-    #     return False
-    # else : 
-    #     logging.debug(0)
-    #     return True
-        
+
+    ROI = ROI.tolist()
+    ROI_polygon = Polygon(ROI)
+    new_loc_res = {}
+    for k,v in loc.items() :
+        new_loc_res[k] = []
+
+    for k,v in loc.items() :
+        for point in v :
+            cur_loc_point = Point(point[0],point[1])
+            distance = ROI_polygon.distance(cur_loc_point) 
+            if distance == 0 :
+                ## Inside ROI 
+                new_loc_res[k].append([point[0],point[1],point[2]])
+            else :
+
+                ## Outside ROI 
+                p1, p2 = nearest_points(ROI_polygon, cur_loc_point)
+
+                ## The point is p1 , converted to string, convert to float
+                p1_x = float(p1.x)
+                p1_y = float(p1.y)
+
+                new_loc_res[k].append([p1_x,p1_y,point[2]])
+
+    return new_loc_res
+
 def draw_box(image, box, label='', color=BGRColor.CYAN, font_size=0.7):
     """
         image: image matrix (h, w, c)
@@ -144,17 +163,21 @@ class Camera(Adaptor):
             'http.data.int'
             ]
         self.pcid = self.args.pcid
-        self.devid = self.args.devid
         self.utility = self.args.utility
         self.view = self.args.view
         self.basefile = None
         Adaptor.__init__(self, args, **kw)
+        # self.devid = self.args.devid
         self.load_config()
         self.start_listen_bus()
         self.run()
-        self.ROI = np.array(self.cfg.get('cam_roi', [0,0,0,2991,2991,2991,2991,0]), dtype=np.int64)
+        self.ROI = np.array(self.cfg.get('cam_roi', [0,0,0,2991,2991,2991,2991,0]), dtype=np.int)
         ROI_length = len(self.ROI) // 2
         self.ROI = self.ROI.reshape(ROI_length,-1)
+
+        self.ROI_loc = np.array(self.cfg.get('loc_roi', [795,704,795,3013,5800,3013,5800,704]), dtype=np.int)
+        ROI_length = len(self.ROI_loc) // 2
+        self.ROI_loc = self.ROI_loc.reshape(ROI_length,-1)
             
     # load config msg into local buffer
     def load_config (self):
@@ -203,7 +226,7 @@ class Camera(Adaptor):
                 self.run_init()
             if ch == 'person.body.updates':
                 # print('[{}]: channel: {}'.format(self.args.id, ch))
-                #print("Received Body Updates")
+                print("Received Body Updates")
                 try:
                     self.cur_engine.person_body_updates(msg)
                 except:
@@ -230,8 +253,6 @@ class Camera(Adaptor):
             print('Empty body features')
             # body_details = {'fvList': []}
             body_details = None
-        else:
-            logging.debug('Got body features length: {}'.format(len(body_details.get('fvList', []))))
         self.process_engine(body_details)
         self.process_localization()
         self.process_stream()
@@ -247,6 +268,7 @@ class Camera(Adaptor):
             self.cam = CamHolder(self.args.id, msg.get('cam', None))
             self.floor = FloorHolder(self.args.id, msg.get('floor', None))
             self.mic = MicHolder(self.args.id, msg.get('mic', None))
+
     
     #!FIXME: need to import correct localization file
     def process_localization (self):
@@ -255,7 +277,7 @@ class Camera(Adaptor):
 
     # initialize detection engine
     def process_engine (self,body_details):
-        self.cur_engine = DetectionEngine(self.cfg, body_details)
+        self.cur_engine = DetectionEngine(self.cfg,body_details)
         logging.debug('Detection Engine module initialized...')
 
     # initialize camera stream
@@ -276,26 +298,37 @@ class Camera(Adaptor):
         # self.stream.set(5,self.cfg.get('camera_fps',30))
 
         logging.debug('Camera Stream module initialized...')
-    
+
     # process env data
     def process_env_data (self, msg):
+
+        logging.info("MESSAGE RECEIVED THROUGHT REDIS CHANNEL")
+        logging.info(msg)
+        #print('**********************************{}'.format(self.devid))
+        #print (msg)
         _dataMsg = msg.get('data', {})
+        #print ('111111+++ {}'.format(_dataMsg))
         _data = _dataMsg.get(str(self.devid), {})
+        #print ('************** DevID: {}, data: {}'.format(self.devid, _data))
+
         if not _data == {}:
             _temp = _data.get('T', {}).get('value', -1)
             _hum = _data.get('H', {}).get('value', -1)
+            #print (_temp, _hum)
             if _temp > 0 and _hum > 0:
                 if self.cur_engine.flag:
                     logging.debug('Env. data T: {}, H: {}'.format(_temp, _hum))
+                    #print('Env. data T: {}, H: {}'.format(_temp, _hum))
                     self.cur_engine.set_env_var(_temp, _hum)
-    
+
     # thread loop for process image and result publish
-    def cam_run (self): 
+    def cam_run (self):
         if self.view:
             import cv2
         
         import time
         last_report = time.time()
+        print("Test Run")
         self.utility_list = []
         while not self.is_quit(1):
             try:
@@ -316,73 +349,81 @@ class Camera(Adaptor):
                     logging.debug('Reading Image Start Timing...')
                     res = {}
 
-                    boxes, person_crop, face_labels, tids, lmks, image, pmvs, actions, score   = _output
-                    print ('********')
-                    print (score)
-                    # logging.debug("###########{}##########".format(len(tids)))
-                    # old_boxes = copy.deepcopy(boxes)
-                    index2delete = []
-                    # logging.debug("ALL BOXES ARE : {}".format(str(boxes)))
-                    for i in range(len(boxes)) :
-                        removed = remove_outside_bbox(self.ROI,boxes[i])
-                        # logging.debug("THE DECISION IS :{}".format(removed))
-                        if removed == -1 :
-                            index2delete.append(i)
-                        else :
-                            continue
-                    index2delete = set(index2delete)
-                    boxes = [v for i, v in enumerate(boxes) if i not in index2delete]
-                    face_labels = [v for i, v in enumerate(face_labels) if i not in index2delete]
-                    tids = [v for i, v in enumerate(tids) if i not in index2delete]
-                    pmvs = [v for i, v in enumerate(pmvs) if i not in index2delete]
-                    if len(boxes) > 0 :
-                        # logging.debug("NEW BOXES ARE : {}".format(str(boxes)))
-                        # logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx")
-                        _output = boxes, person_crop, face_labels, tids, lmks, image, pmvs, actions
+                    boxes, person_crop, face_labels, tids, lmks, image, pmvs, actions, score, clothids   = _output
+                    if boxes is None:
+                        image = _img
+                        tids = []
+                        resList = [{"list" : []}]
+                        logging.debug("NO DETECTION")
+                        logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx")
+                    else:
 
-                        res, t, time_used = self.localize.find_location(_output)
-                        # res format should ne {'dt': [], 'dt': []}
-                        # convert into [{'list': [], 'timestamp': ''}, {'list': [], 'timestamp': ''}]
-                        resList = []
-                        #print ('**************')
-                        #print (res)
-                        for k, v in res.items():
-                            if k == time_used : 
-                                _list = [sublist + [str(num)] for sublist, num in zip(v, _output[-2])]
-                                _list[0].extend(score)
-                                resList.append({'list': _list, 'timestamp': t})
-                        print (resList)
-                        # logging.debug(res)
-                        # logging.debug(len(_output[3]))
-                        # logging.debug(_output[3])
-                        # logging.debug(resList[0]['list'])
-                        # logging.debug("Track ID {}".format(tids))
-                        # logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-                        _res = {'timestamp': dt.datetime.now(), 'result': resList, 'pcid': self.pcid}
-                        print (_res)
-                        # logging.debug("Continue to process but no publish")
-                        # continue
-                        self.redis_conn.publish(
-                            '{}.result'.format(self.component_prefix),
-                            json2str(_res)
-                        )
-                    else :
-                        logging.debug("THERE ARE NO NEW BOXES")
+                        # logging.debug("###########{}##########".format(len(tids)))
+                        # old_boxes = copy.deepcopy(boxes)
+                        index2delete = []
+                        # logging.debug("ALL BOXES ARE : {}".format(str(boxes)))
+                        for i in range(len(boxes)) :
+                            removed = remove_outside_bbox(self.ROI,boxes[i])
+                            # logging.debug("THE DECISION IS :{}".format(removed))
+                            if removed == -1 :
+                                index2delete.append(i)
+                            else :
+                                continue
+                        index2delete = set(index2delete)
+                        boxes = [v for i, v in enumerate(boxes) if i not in index2delete]
+                        face_labels = [v for i, v in enumerate(face_labels) if i not in index2delete]
+                        tids = [v for i, v in enumerate(tids) if i not in index2delete]
+                        pmvs = [v for i, v in enumerate(pmvs) if i not in index2delete]
+                        if len(boxes) > 0 :
+                            # logging.debug("NEW BOXES ARE : {}".format(str(boxes)))
+                            # logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx")
+                            _output = boxes, person_crop, face_labels, tids, lmks, image, pmvs, actions
+
+                            res, t, time_used = self.localize.find_location(_output)
+
+                            ## Implementation of new ROI in here :
+                            res = converted_loc(self.ROI_loc,res)
+                            # res format should ne {'dt': [], 'dt': []}
+                            # convert into [{'list': [], 'timestamp': ''}, {'list': [], 'timestamp': ''}]
+                            resList = []
+                            #print (res)
+                            for k, v in res.items():
+                                if k == time_used : 
+                                    list = [sublist + [str(num)] for sublist, num in zip(v, _output[-2])]
+                                    resList.append({'list': list, 'timestamp': t})
+                            # logging.debug(res)
+                            # logging.debug(len(_output[3]))
+                            # logging.debug(_output[3])
+                            # logging.debug(resList[0]['list'])
+                            # logging.debug("Track ID {}".format(tids))
+                            # logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+                            _res = {'timestamp': dt.datetime.now(), 'result': resList, 'pcid': self.pcid}
+                            # logging.debug("Continue to process but no publish")
+                            # continue
+                            self.redis_conn.publish(
+                                '{}.result'.format(self.component_prefix),
+                                json2str(_res)
+                            )
+                        else :
+                            resList = [{"list" : []}]
+                            logging.debug("THERE ARE NO NEW BOXES")
                     
                 else : 
                     image = _img
                     tids = []
+                    resList = [{"list" : []}]
+                    # resList[0]['list']
                     # logging.debug("ROI :{}".format(str(self.ROI)))
                     # logging.debug(self.ROI)
                     # logging.debug(type(self.ROI))
                     # logging.debug(self.ROI.shape)
-                    #logging.debug("NO DETECTION")
-                    #logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx")
+                    logging.debug("NO DETECTION")
+                    logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx")
                 if self.view:
                     cv2.namedWindow('Video feed', cv2.WINDOW_NORMAL)
                     cv2.resizeWindow("Video feed", 1280, 720)
                     cv2.moveWindow('Video feed', 50, 50)
-                    #logging.debug("CREATE WINDOW")
+                    logging.debug("CREATE WINDOW")
                     count = 1
                     avg_frame_t = 0
                     avg_fps = 0
@@ -401,45 +442,54 @@ class Camera(Adaptor):
                             box_color = BGRColor.RED
                         else:
                             box_color = BGRColor.WHITE
-                        #logging.debug("-----------------------------------------")
+                        logging.debug("-----------------------------------------")
                         # logging.debug(boxes[i])
                         image = draw_box(image, boxes[i], label, color=box_color, font_size=2.0)
-                        #logging.debug("DRAW TIDS")
+                        logging.debug("DRAW TIDS")
                     # logging.debug("SKIP TIDS")
                     loop_dur = time.time() - loop_start_time
                     calc_fps = 1 / loop_dur
                     info_text = "Run time: {:.3f} s".format(time.time() - start_time)
                     loop_t_text = "Frame time: {:.3f} s".format(loop_dur)
                     fps_text = "Calculated FPS: {:.3f}".format(calc_fps)
-                    #logging.debug("CALCULATION of FPS")
+                    logging.debug("CALCULATION of FPS")
                     image = overlay_text(image, 1.0, info_text, loop_t_text, fps_text)
                     # logging.debug("ROI is {}".format(str(self.ROI)))
                     cv2.polylines(image, [self.ROI], True, color=BGRColor.CYAN, thickness=10)
-                    #logging.debug("OVERLAY TEXT OVER IMAGE")
+                    logging.debug("OVERLAY TEXT OVER IMAGE")
                     # For statistics:
                     count += 1
                     avg_frame_t = avg_frame_t + ((loop_dur - avg_frame_t) / count)
                     avg_fps = avg_fps + ((calc_fps - avg_fps) / count)
                     # cv2.imwrite("sample.png",image)
-                    #logging.debug("DRAW IMAGE INTO WINDOW")
+                    logging.debug("DRAW IMAGE INTO WINDOW")
                     cv2.imshow("Video feed", image)
                     if self.view  and cv2.waitKey(1) & 0xFF == ord('q'):
                         # video_shower.stop()
                         # change waitKey() for different refresh interval; press 'q' key to quit
                         cv2.destroyAllWindows()
                         self.view = False
+                # logging.info("CHECK RES LIST")
+                # logging.info(resList)
 
                 self.utility_list.append(len(resList[0]['list']) if resList is not None else 0)
-
-                if self.utility and time.time() - last_report >= 60:
+                
+                if self.utility and time.time() - last_report >= 60 :
+                    logging.info(self.utility_list)
                     ppl_count = majority_element(self.utility_list)
+                    logging.info(ppl_count)
+                    if ppl_count == 0 :
+                        last_report = time.time()
+                        self.utility_list = []
+                        continue
+
                     msg = {
                     "cam_id": self.args.id,
                     "timestamp": {"$dt": dt.datetime.now().timestamp()},
                     "pcid": 7000,
                     "people_count": ppl_count
                     }    
-                    #logging.debug("Update count for utility: {}".format(json2str(msg)))
+                    logging.debug("Update count for utility: {}".format(json2str(msg)))
                     self.redis_conn.publish("util.{}.query".format(self.args.id),json2str(msg))
                     last_report = time.time()
                     self.utility_list = [] 
@@ -448,10 +498,10 @@ class Camera(Adaptor):
 
                 continue
                 # logging.debug(_res)
-                #logging.debug('Pubish result with {} number of key'.format(len(_res['result'])))
+                logging.debug('Pubish result with {} number of key'.format(len(_res['result'])))
                 # logging.debug("###########{}##########".format(_res['result']))
                 process_time = time.time() - start_time
-                #logging.debug("Time needed for 1 process is {}".format(str(process_time)))
+                logging.debug("Time needed for 1 process is {}".format(str(process_time)))
             except:
                 continue
             # else:

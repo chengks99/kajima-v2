@@ -32,7 +32,7 @@ class HTTPDataIntegration(PluginModule):
             'url': kw.get('url', "https://thegear-staging.iot-trialpack.com"),
             'usr': kw.get('username', "IoTPanaAPIY"),
             'pwd': kw.get('password', "TGR!oTPan@23"),
-            'interval': kw.get('interval', 15)
+            'interval': kw.get('interval', 1)
         }
         self.deviceList = {}
         logging.debug('Start Data Integration Module')

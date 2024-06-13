@@ -291,7 +291,7 @@ class BackendServer (PluginModule):
             'username': args.humusr,
             'password': args.humpwd,
         }
-        self.humAPI = HumanAPI(dets)
+        #self.humAPI = HumanAPI(dets)
     
     def reset_body(self):
         # Timer
@@ -626,12 +626,12 @@ class BackendServer (PluginModule):
                 encryptedID = self.__get_encrypted_id()
                 _query = 'INSERT INTO face_db (name, features, race, age, gender, eID) VALUES (%s, %s, %s, %s, %s, %s)'
                 val = (fv['name'], fv['features'], fv['race'], fv['age'], fv['gender'], encryptedID)
-                self.humAPI.add_human_data({'gender': fv['gender'], 'ageGroup': fv['age'], 'humanID': encryptedID, 'race': fv['race']})
+                #self.humAPI.add_human_data({'gender': fv['gender'], 'ageGroup': fv['age'], 'humanID': encryptedID, 'race': fv['race']})
             else:
                 encryptedID = cur[0]['eID']
                 _query = """UPDATE face_db SET features = %s age = %s WHERE eID = %s"""
                 val = (fv['features'], fv['age'], encryptedID)
-                self.humAPI.update_human_data({'gender': fv['gender'], 'ageGroup': fv['age'], 'humanID': encryptedID, 'race': fv['race']})
+                #self.humAPI.update_human_data({'gender': fv['gender'], 'ageGroup': fv['age'], 'humanID': encryptedID, 'race': fv['race']})
             self.init_db.execute(_query, data=val, commit=False)
 
             '''

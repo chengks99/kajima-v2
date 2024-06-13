@@ -8,7 +8,8 @@ from skimage import transform
 # from sklearn.preprocessing import normalize
 
 from yolox_detector import YoloxPredictor
-from embedding import UbodyEmbedding, FullbodyEmbedding
+# from embedding import UbodyEmbedding, FullbodyEmbedding
+from embedding import UbodyEmbedding
 from person_tracker_PMV import FishEyeTracker
 
 import visualization as vsl
@@ -72,8 +73,7 @@ class PersonEngine(object):
                  body_details,
                  pd_det_threshold=0.5, pd_nms_threshold=0.3, pd_input_resize=0, 
                  max_detected_persons=0, min_person_width=50, pr_threshold=0.3, device=-1):
-        print ('Init Person Engine')
-        self.flag = False
+        
         self.body_details = body_details
         # self.rgb = rgb
         self.min_person_width = min_person_width
@@ -92,15 +92,19 @@ class PersonEngine(object):
         self.feature_engine = FeatureEngine(pr_model, self.LMK_VISIBILITY_THRESHOLD, device)
         logging.debug('Feature Engine loaded ...')
 
-        self.env_variables =  {'tr': radiant_temp, 'tdb': room_temp, 
+        env_variables =  {'tr': radiant_temp, 'tdb': room_temp, 
                         'to': room_temp, 'rh': rel_humidity, 'v': air_speed}
 
         #print (pr_threshold, body_db_file, pmv_model, env_variables)
+        # for i in range(len(self.body_details["fvList"])) :
+        #     logging.info(self.body_details['fvList'][i]["name"])
+        #     logging.info("XXXXXXXXXXXXXXXXXXXXx")
+
         self.BodyTracker = FishEyeTracker(
             pr_threshold, 
             body_db_file, 
             pmv_model, 
-            self.env_variables,
+            env_variables,
             body_details=self.body_details,
         )
         logging.debug('Body Tracker loaded ...')
@@ -125,8 +129,7 @@ class PersonEngine(object):
         # self.actionNet = torch.load(model_locatioon)
 
         self.actionNet = self.actionNet.to(self.device) 
-        self.actionNet.eval()  
-        self.flag = True     
+        self.actionNet.eval()       
 
         # self.queue_det = Queue(1)
         # self.queue_skl = Queue(1)
@@ -137,7 +140,7 @@ class PersonEngine(object):
     def person_body_updates (self, body_details):
         self.body_details = body_details
         self.BodyTracker.body_updates(body_details)
-        
+
     def set_env_var (self, temp, humid):
         logging.debug('Env. data T: {}, H: {}'.format(temp, humid))
         #env_variables =  {'tr': radiant_temp, 'tdb': temp, 
@@ -147,7 +150,7 @@ class PersonEngine(object):
         self.env_variables['rh'] = humid
         if self.BodyTracker.flag:
             self.BodyTracker.set_env_var(self.env_variables)
-
+            
     def YoloxPersonBoxTrackMatchFeature(self, bgrimg, new_dts, lmks, lmk_confs, body_crops, body_features):
         img_dim = bgrimg.shape[:2]
         # rgbimg = cv2.cvtColor(bgrimg, cv2.COLOR_BGR2RGB)
@@ -155,6 +158,9 @@ class PersonEngine(object):
         # dts = self.detection_engine.YoloxPersonDetect(bgrimg)
 
         self.frame_num += 1
+
+        # if new_dts is None:
+        #     return None, None, None, None, None, bgrimg, None, None, None, None
 
         # if len(dts) == 0:
         #     return None    
@@ -165,17 +171,22 @@ class PersonEngine(object):
         # #feature extraction
         # body_crops, body_features = self.feature_engine.BodyFeatureExtraction(bgrimg, new_dts, lmks, lmk_confs)
 
-        bboxs = new_dts[:,:4]
-        #print("Detected {} boxes".format(bboxs.shape))
+        if new_dts is None:
+            trackids, subids, pmvs, score, clothids = self.BodyTracker.update(None, None, None, None, img_dim, None, None)
+            return new_dts, body_crops, subids, trackids, lmks, bgrimg, pmvs, None, None, clothids
+
+
+        # print("Detected boxes", new_dts)
+        bboxs = new_dts[:,:5] 
 
         #clothattribute
-        try:
-            cloth_attributes = self.cloth_predictor.model_inference(bgrimg, lmks, lmk_confs)
-        except Exception as e:
-            print("CLOTH ATT Detection failed, replace to alternative default")
-            cloth_attributes = []
-            for lmk, lmk_conf in zip(lmks, lmk_confs):
-                cloth_attributes.append({'top': ['short_Sleeve_Top', 0.99], 'bot': ['trousers', 0.99], 'full': ['vest_Dress', 0.99], 'iclo': 0.38})
+        # try:
+        cloth_attributes = self.cloth_predictor.model_inference(bgrimg, lmks, lmk_confs)
+        # except Exception as e:
+        #     print("CLOTH ATT Detection failed, replace to alternative default")
+        #     cloth_attributes = []
+        #     for lmk, lmk_conf in zip(lmks, lmk_confs):
+        #         cloth_attributes.append({'top': ['short_Sleeve_Top', 0.99], 'bot': ['trousers', 0.99], 'full': ['vest_Dress', 0.99], 'iclo': 0.38})
         print("CLOTH ATT ", cloth_attributes)
 
         #estimate action 
@@ -183,7 +194,7 @@ class PersonEngine(object):
 
         #update tracking table
         t1 = time.time()
-        trackids, subids, pmvs, score = self.BodyTracker.update(bboxs, lmks, lmk_confs, body_features, img_dim, cloth_attributes, actions)
+        trackids, subids, pmvs, score, clothids = self.BodyTracker.update(bboxs, lmks, lmk_confs, body_features, img_dim, cloth_attributes, actions)
         t2 = time.time() - t1
         #print("tracking time ", t2)
 
@@ -191,7 +202,7 @@ class PersonEngine(object):
         vsl.draw_lmks(bgrimg, lmks, lmk_confs, (255,255,255), self.LMK_VISIBILITY_THRESHOLD)
         bgrimg = vsl.draw_yolox(bgrimg, new_dts)
 
-        return new_dts, body_crops, subids, trackids, lmks, bgrimg, pmvs, actions, score
+        return new_dts, body_crops, subids, trackids, lmks, bgrimg, pmvs, actions, score, clothids
 
     def YoloxPersonBoxTrackMatchFeature_no_thread(self, bgrimg):
         img_dim = bgrimg.shape[:2]
@@ -301,6 +312,10 @@ class DetectionEngine(object):
         self.min_person_width = min_person_width
         self.max_person_height = 600
 
+        # pd_model = '/home/jk/Desktop/Backup GEAR/20231031_JK_Joe/Kajima_Fisheye_JK_prev/storage/models/yolox/cpset8_pa150dyn1024_e20_ckpt_9636.pth'
+        # # pd_model = '/home/jk/Desktop/Backup GEAR/NewModels/epoch_20_ckpt.pth'
+        # pd_input_resize = 1600
+
         self.__detector_yolox = YoloxPredictor(model_name='yolox-l', model_weight=pd_model, 
             test_size=pd_input_resize, test_conf=pd_det_threshold, 
             nmsthre=pd_nms_threshold, maxppl=max_detected_persons, device=device)
@@ -315,6 +330,15 @@ class DetectionEngine(object):
 
         # #filter out small detections
         dts = self.__filterDts(detections)
+
+        if dts is not None:
+            from copy import deepcopy
+            # dts = dts[:,:5]
+            box_corner = deepcopy(dts)
+            dts[:, 0] = box_corner[:, 0] - box_corner[:, 2] / 2
+            dts[:, 1] = box_corner[:, 1] - box_corner[:, 3] / 2
+            dts[:, 2] = box_corner[:, 0] + box_corner[:, 2] / 2
+            dts[:, 3] = box_corner[:, 1] + box_corner[:, 3] / 2
 
         t2 = time.time() - t1
         #logging.debug('Detection Time: {}'.format(t2))
@@ -388,8 +412,8 @@ class DetectionEngine(object):
         while True:
             bgrimg = input_q.get()
             dts = self.YoloxPersonDetect(bgrimg)
-            if dts is None:
-                continue
+            # if dts is None:
+            #     continue
             output_q.put((bgrimg, dts))
             # queue.task_done() # this is new 
 
@@ -425,6 +449,9 @@ class SkeletonEngine(object):
 
     def SkeletonDetect(self, bgrimg, dts):
         t1 = time.time()
+        if dts is None:
+            return None, None, None
+
         imgh, imgw = bgrimg.shape[:2]
         bboxs = dts[:,:4]
 
@@ -432,20 +459,22 @@ class SkeletonEngine(object):
         rot = self.__get_angle_batch(imgw, imgh, dts)
 
         #detect body landmarks
-        lmks, lmk_confs = self.kp.detect_batch(bgrimg, bboxs, rot)
+        # lmks, lmk_confs = self.kp.detect_batch(bgrimg, bboxs, rot)
+        lmks, lmk_confs = self.kp.detect_batch(bgrimg, bboxs)
 
-        #crop upper body
-        t2 = time.time() - t1
-        #logging.debug('Skeleton Detection time: {}'.format(t2))
+        # #crop upper body
+        # t2 = time.time() - t1
+        # #logging.debug('Skeleton Detection time: {}'.format(t2))
 
-        #create cxcywh, angle, conf box format
-        conf = dts[:,4]*dts[:,5]
-        detections = np.zeros((len(dts), 6))
-        detections[:,:4] = bboxs
-        detections[:,4] = rot
-        detections[:,5] = conf
+        # #create cxcywh, angle, conf box format
+        # conf = dts[:,4]*dts[:,5]
+        # detections = np.zeros((len(dts), 6))
+        # detections[:,:4] = bboxs
+        # detections[:,4] = rot
+        # detections[:,5] = conf
 
-        return lmks, lmk_confs, detections
+        # return lmks, lmk_confs, detections
+        return lmks, lmk_confs, dts
 
     def worker(self, input_q, output_q):
         while True:
@@ -639,6 +668,8 @@ class FeatureEngine(object):
 
     def BodyFeatureExtraction(self, bgrimg, dts, lmks, lmk_confs):
         t1 = time.time()
+        if dts is None:
+            return None, None
         rgbimg = cv2.cvtColor(bgrimg, cv2.COLOR_BGR2RGB)
         body_crops, flags = self.__crop_rot_upper_body_lmk(rgbimg, dts, lmks, lmk_confs)
         #extract body features
