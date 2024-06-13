@@ -129,7 +129,7 @@ class MQTTBroker(object):
     def publish (self, msg):
         # msg['Timestamp'] = int(dt.datetime.timestamp(msg['Timestamp']))
         self.client.publish(self.topic, json.dumps(msg), qos=0, retain=True)
-        logging.info('MQTT message sent : {}'.format(msg))
+        logging.debug('MQTT message sent : {}'.format(msg))
 
     def close (self):
         self.client.disconnect()
