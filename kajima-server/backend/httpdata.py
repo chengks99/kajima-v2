@@ -101,7 +101,7 @@ class HTTPDataIntegration(PluginModule):
             logging.error(e.response.text)
             return None
         except Exception as e:
-            logging.error('Other Error: ', e)
+            logging.error('Other Error: {}'.format(e))
             return None
 
     def _get_iaq_devices (self, **kw):
@@ -126,7 +126,8 @@ class HTTPDataIntegration(PluginModule):
     def _get_measurements (self, **kw):
         _source = kw.get('source', None)
         if _source is None:
-            raise ValueError('IAQ source ID is None...')
+            logging.error('IAQ source ID is None...')
+            return False
         else:
             _data = {
                 'pageSize': 1,
@@ -151,14 +152,15 @@ class HTTPDataIntegration(PluginModule):
                         if 'T' in _data: self.deviceList[_id]['T'] = _data['T']
                         if 'H' in _data: self.deviceList[_id]['H'] = _data['H']
                         self.deviceList[_id]['timestamp'] = _time
+                return True
             else:
                 logging.error('Unable to retrieve measurement for {}'.format(_req_data.get('source', 'error')))
+            return False
 
     def run (self):
         while True:
             if self._get_iaq_devices():
                 for dl in self.deviceList:
-                    #if not dl == '78681': continue
                     self._get_measurements(source=dl)
                 self.redis_conn.publish('http.data.int', json2str({'data': self.deviceList, 'timestamp': dt.datetime.now()}))
             time.sleep(self.details.get('interval', 0.5) * 60)

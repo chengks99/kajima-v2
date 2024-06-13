@@ -454,13 +454,13 @@ class BackendServer (PluginModule):
             val = (result['cam_id'], result['timestamp'].strftime('%Y%m%d%H%M%S'), result['people_count'])
             self.utility.execute(_query,data = val, commit = True)
             logging.debug("Update detection for {}: count : {}, timestamp : {}".format(result['cam_id'],result['people_count'],result['timestamp'].strftime('%Y%m%d%H%M%S')))
-            self.utility.commit()
             data = {
                 'util_id': result['cam_id'],
                 'util_rate': result['people_count'],
                 'time': result['timestamp'].timestamp(),
             }
             self.redis_conn.publish('sql.changes.listener', json2str({'id': result['cam_id'], 'pcid': int(result['pcid']), 'msg': json2str(data)}))
+            self.utility.commit()
         
     def response_audio_query (self, adtype, query):
         logging.debug('Response {} query: {}'.format(adtype, query))
