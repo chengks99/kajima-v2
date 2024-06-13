@@ -100,6 +100,9 @@ class HTTPDataIntegration(PluginModule):
         except requests.exceptions.HTTPError as e:
             logging.error(e.response.text)
             return None
+        except Exception as e:
+            logging.error('Other Error: ', e)
+            return None
 
     def _get_iaq_devices (self, **kw):
         _data = {
@@ -115,43 +118,49 @@ class HTTPDataIntegration(PluginModule):
             self.deviceList = {}
             for o in _obj:
                 self.deviceList[o['id']] = {}
+            return True
         else:
-            raise ValueError('Unable to retrieve iaq devices')
+            logging.error('Unable to retrieve iaq devices')
+            return False
     
     def _get_measurements (self, **kw):
-        _data = {
-            'pageSize': 1,
-            'source': 78601,
-            'revert': 'true',
-            'valueFragmentType': None,
-            'vlaueFragmentSeries': None,
-            'dateFrom': None ,
-            'dateTo': None,
-        }
-        _req_data = self._filter_data(_data, kw)
-        _url = "{}/measurement/measurements?{}".format(self.details['url'], self._form_url_string(_req_data))
-        r = self._requests(_url)
-        if not r is None:
-            _mea = r.get('measurements', [])
-            for m in _mea:
-                _id = m.get('source', {})
-                _id = _id.get('id', -1)
-                _time = m.get('time', dt.datetime.now())
-                if int(_id) > 0:
-                    _data = m.get('ktg_iaq', {})
-                    if 'T' in _data: self.deviceList[_id]['T'] = _data['T']
-                    if 'H' in _data: self.deviceList[_id]['H'] = _data['H']
-                    self.deviceList[_id]['timestamp'] = _time
+        _source = kw.get('source', None)
+        if _source is None:
+            raise ValueError('IAQ source ID is None...')
         else:
-            raise ValueError('Unable to retrieve measurement for {}'.format(_req_data.get('source', 'error')))
+            _data = {
+                'pageSize': 1,
+                'source': _source,
+                'revert': 'true',
+                'valueFragmentType': None,
+                'vlaueFragmentSeries': None,
+                'dateFrom': None ,
+                'dateTo': None,
+            }
+            _req_data = self._filter_data(_data, kw)
+            _url = "{}/measurement/measurements?{}".format(self.details['url'], self._form_url_string(_req_data))
+            r = self._requests(_url)
+            if not r is None:
+                _mea = r.get('measurements', [])
+                for m in _mea:
+                    _id = m.get('source', {})
+                    _id = _id.get('id', -1)
+                    _time = m.get('time', dt.datetime.now())
+                    if int(_id) > 0:
+                        _data = m.get('ktg_iaq', {})
+                        if 'T' in _data: self.deviceList[_id]['T'] = _data['T']
+                        if 'H' in _data: self.deviceList[_id]['H'] = _data['H']
+                        self.deviceList[_id]['timestamp'] = _time
+            else:
+                logging.error('Unable to retrieve measurement for {}'.format(_req_data.get('source', 'error')))
 
     def run (self):
         while True:
-            self._get_iaq_devices()
-            for dl in self.deviceList:
-                #if not dl == '78681': continue
-                self._get_measurements(source=dl)
-            self.redis_conn.publish('http.data.int', json2str({'data': self.deviceList, 'timestamp': dt.datetime.now()}))
+            if self._get_iaq_devices():
+                for dl in self.deviceList:
+                    #if not dl == '78681': continue
+                    self._get_measurements(source=dl)
+                self.redis_conn.publish('http.data.int', json2str({'data': self.deviceList, 'timestamp': dt.datetime.now()}))
             time.sleep(self.details.get('interval', 0.5) * 60)
             #time.sleep(10)
             if self.th_quit.is_set():

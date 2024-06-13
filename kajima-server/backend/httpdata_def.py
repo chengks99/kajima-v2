@@ -95,8 +95,10 @@ class HTTPDataIntegration(object):
             for o in _obj:
                 self.deviceList[o['id']] = {}
             print('{} IAQ Device: {} found'.format(dt.datetime.now(), len(_obj)))
+            return True
         else:
-            raise ValueError('Unable to retrieve iaq devices')
+            print ('Unable to retrieve iaq devices')
+            return False
     
     def _get_measurements (self, **kw):
         _source = kw.get('source', None)
@@ -132,9 +134,9 @@ class HTTPDataIntegration(object):
 
     def run (self):
         while True:
-            self._get_iaq_devices()
-            for dl in self.deviceList:
-                self._get_measurements(source=dl)
+            if self._get_iaq_devices():
+                for dl in self.deviceList:
+                    self._get_measurements(source=dl)
             time.sleep(self.details.get('interval', 15) * 60)
             if self.th_quit.is_set():
                 break
