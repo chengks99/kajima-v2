@@ -270,6 +270,7 @@ class MQTTForwarding(PluginModule):
                 # self._publish(_res, mqtt_msg)
     
     def process_redis_msg (self, ch, msg):
+        print (ch, msg)
         if ch in self.subscribe_channels:
             if ch == 'sql.changes.listener':
                 self.updates_result(msg)
@@ -294,11 +295,14 @@ class MQTTForwarding(PluginModule):
             if 'util_id' in _res:
                 print ('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
                 print (_res)
+                _uid = ''
+                if isinstance(_res['util_id'], str): _uid = '{num:0>6}'.format(num=_res['util_id'])
+                if isinstance(_res['util_id'], int): _uid = '{0:06d}'.format(_res['util_id'])
                 mqtt_msg = {
                     "PC_ID": '{0:06d}'.format(msg['pcid']),
                     "Device_data": [
                         {
-                            "Device_ID": '{0:06d}'.format(_res['util_id']),
+                            "Device_ID": _uid,
                             "Device_name": 'deviceID_rate',
                             "Data_type": "string",
                             "Value": '{}_{}'.format(_res['util_id'], _res['util_rate']),
@@ -306,7 +310,7 @@ class MQTTForwarding(PluginModule):
                     ],
                     "Timestamp": int(_res['time']),
                 }
-                self.tt.publish(mqtt_msg)
+                if not _uid == '': self.tt.publish(mqtt_msg)
             
             if 'cam_id' in _res:
                 # _res['comfort'] = 0
