@@ -309,7 +309,7 @@ class BackendServer (PluginModule):
                 # Convert the input list or array to a NumPy array     
                 if self.init_db is not None:
                     self.init_db.execute(_query, commit=False)
-                    logging.debug('Deleted body table')  
+                    logging.debug('Deleted body table in sql')  
                 self.redis_conn.delete('person.body.features')
                 self.body_details = {
                     'fvList' : []
