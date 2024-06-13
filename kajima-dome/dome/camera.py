@@ -135,6 +135,7 @@ class MicHolder(object):
 
 class DetectionEngine(object):
     def __init__(self, cfg, face_details, body_details, redis_conn) -> None:
+        self.flag = False
         self.cfg_cam = cfg.pop('camera')
         self.cam_count = cfg.pop('count')
         self.cfg_person = cfg
@@ -144,7 +145,7 @@ class DetectionEngine(object):
 
         self.init_cam_stream(self.cfg_cam)
         self.init_person_engine(self.cfg_person, self.cfg_cam)
-
+        self.flag = True
 
     def init_cam_stream (self, cfg, start_frame=0):
         self.camera_width = cfg.get('camera_width', 1280)
@@ -189,6 +190,10 @@ class DetectionEngine(object):
         _fp = scriptpath.parent / cfg_person['body_model_info']['body_database']
         cfg_person['body_model_info']['body_database'] = str(_fp)
         self.person_engine = PersonEngine(cfg_person, cfg_cam, self.face_details, self.body_details, self.redis_conn)
+
+    def set_env_var (self, temp, humid):
+        if self.person_engine.flag:
+            self.person_engine.set_env_var(temp, humid)
 
     def run (self):
         # count = 0
