@@ -4,11 +4,11 @@ Contains all source code for Kajima GEAR building
 ## DirectoryTree
 |**directories**|**Descriptions**|
 |:--:|---|
-|**Kajima_Dome**|base code for dome camera|
-|**Kajima_Dome_Localization**|added localization method on top of Kajima_Dome|
-|**Kajima_Fisheye**|support for fisheye camera & ROI|
-|**Kajima_Mic**|audio detection code|
-|**Kajima-face**|source code for face feature extraction|
+|**kajima-dome**|base code for dome camera|
+|**kajima-dome-localization**|added localization method on top of Kajima_Dome|
+|**kajima-fisheye**|support for fisheye camera & ROI|
+|**kajima-mic**|audio detection code|
+|**kajima-face**|source code for face feature extraction|
 |**kajima-server**| source code for server|
 |**README.md**|this file|
 
