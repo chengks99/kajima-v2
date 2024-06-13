@@ -270,7 +270,7 @@ class MQTTForwarding(PluginModule):
                 # self._publish(_res, mqtt_msg)
     
     def process_redis_msg (self, ch, msg):
-        print (ch, msg)
+        #print (ch, msg)
         if ch in self.subscribe_channels:
             if ch == 'sql.changes.listener':
                 self.updates_result(msg)
@@ -293,8 +293,8 @@ class MQTTForwarding(PluginModule):
         if not res is None:
             _res = json.loads(res)
             if 'util_id' in _res:
-                print ('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
-                print (_res)
+                #print ('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
+                #print (_res)
                 _uid = ''
                 if isinstance(_res['util_id'], str): _uid = '{num:0>6}'.format(num=_res['util_id'])
                 if isinstance(_res['util_id'], int): _uid = '{0:06d}'.format(_res['util_id'])
