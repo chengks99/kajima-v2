@@ -151,7 +151,7 @@ class Dome(Adaptor):
         # should contain {'fvList': [{'eID', 'features}, ...]}
         face_details = Adaptor.get_redismsg_by_channel(self, 'person.face.features')
         if face_details is None:
-            print('Empty face features')
+            logging.info('Empty face features')
             face_details = None
             # exit(1)
         # logging.info("The face are : {}".format(face_details))
@@ -159,14 +159,15 @@ class Dome(Adaptor):
         # should contain {'fvList': [{'name', 'features', 'person_details'}, ...] }
         body_details = Adaptor.get_redismsg_by_channel(self,'person.body.features')
         if body_details is None:
-            print('Empty body features')
+            logging.info('Empty body features')
             # body_details = {'fvList': []}
             body_details = None
+        else:
+            logging.info('Obtained init body features with length: {}'.format(len(body_details.get('fvList', []))))
         self.process_engine(face_details, body_details)
 
     def process_engine (self, face_details, body_details):
         logging.debug('Detection Engine module initialized...')
-        logging.info("Running Detection Engine")
         if self.view:
             import cv2
             import numpy as np        
