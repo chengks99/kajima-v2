@@ -173,7 +173,7 @@ class Dome(Adaptor):
         from camera import DetectionEngine
 
         self.cur_engine = DetectionEngine(self.cfg, face_details, body_details, self.get_redis_conn())
-        last_report = time.time()
+        last_report = dt.datetime.now()
         self.utility_list = []
         while not self.is_quit():
             output, images = self.cur_engine.run()
@@ -190,16 +190,17 @@ class Dome(Adaptor):
 
             self.utility_list.append(max(len(roi_dts[1]),len(roi_dts[0])) if output is not None else 0)
             
-            if self.utility and time.time() - last_report >= 60:
+            _timeDiff = dt.datetime.now() - last_report
+            if self.utility and _timeDiff.total_seconds() >= 60:
                 ppl_count =  majority_element(self.utility_list) if self.utility_list is not None else 0
                 msg = {
-                "cam_id": self.args.id,
-                "timestamp": {"$dt": dt.datetime.now().timestamp()},
-                "pcid": 7000,
-                "people_count": ppl_count
-                }   
+                    "cam_id": self.args.id,
+                    "timestamp": {"$dt": dt.datetime.now().timestamp()},
+                    "pcid": self.pcid,
+                    "people_count": ppl_count
+                    }   
                 self.redis_conn.publish("util.{}.query".format(self.args.id),json2str(msg))
-                last_report = time.time()
+                last_report = dt.datetime.now()
                 self.utility_list = [] 
             else:
                 # logging.info("This dome will not process people_counting")   
