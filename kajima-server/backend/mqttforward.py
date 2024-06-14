@@ -129,7 +129,7 @@ class MQTTBroker(object):
     def publish (self, msg):
         # msg['Timestamp'] = int(dt.datetime.timestamp(msg['Timestamp']))
         self.client.publish(self.topic, json.dumps(msg), qos=0, retain=True)
-        logging.debug('MQTT message sent : {}'.format(msg))
+        print('MQTT message sent : {}'.format(msg))
 
     def close (self):
         self.client.disconnect()
@@ -182,93 +182,7 @@ class MQTTForwarding(PluginModule):
         base64_bytes = b64_str.encode('ascii')
         msg_bytes = base64.b85decode(base64_bytes)
         return msg_bytes.decode('ascii')
-
-    def _publish (self, res, mqtt_msg, interval=30):
-        if self.MQTT:
-            self.tt.publish(mqtt_msg)
-        _query = """UPDATE mqtt_device SET last_update =  %s WHERE device_id = %s"""
-        _val = (res['time'], res['cam_id'])
-        self.dbDict['camera-{}'.format(res['cam_id'])] = {'query': _query, 'value': _val}
-        #print (_query, _val)
-        _now = dt.datetime.now()
-        _timediff = _now - self.timing
-        if _timediff.total_seconds() > interval:
-            for key, val in self.dbDict.items():
-                logging.debug('Update Database for {}: {}'.format(key, val['value']))
-                cur = self.db.execute(val['query'], data=val['value'], commit=False)
-            self.db.commit()
-            self.timing = _now
-
-    # example msg:  {'id': 'camera-18', 'msg': '{"cam_id": 18, "loc_x": 97, "loc_y": 881, "time": "2022-12-15 12:30:23", "human_id": 999990, "microsecond": 193836}'}
-    def process_redis_msg_old (self, ch, msg):
-        if ch in self.subscribe_channels:
-            # logging.debug("{}: redis-msg received from '{}': {}".format(self, ch, msg))
-            res = msg.get('msg', None)
-            #print ('*********')
-            #print (res)
-            if not res is None:
-                _res = json.loads(res)
-                if 'cam_id' in _res:
-                    # _res['comfort'] = 0
-                    # if DEBUG:
-                    #     bCAM = copy.deepcopy(_res['cam_id'])
-                    #     _res['cam_id'] = 7103
-                    enc = hashlib.blake2b(key=str(_res['human_id']).encode(), digest_size=7).hexdigest()
-                    if 'human_comfort' in _res:
-                        _name = "human_x_y_comfort"
-                        _val = '{}_{}_{}_{}'.format(enc, _res['loc_x'], _res['loc_y'], _res['human_comfort'])
-                    else:
-                        _name = "human_x_y_comfort"
-                        _val = '{}_{}_{}_{}'.format(enc, _res['loc_x'], _res['loc_y'], 0)
-
-                    mqtt_msg = {
-                        "PC_ID": '{0:06d}'.format(msg['pcid']),
-                        "Device_data": [
-                            {
-                                "Device_ID": '{0:06d}'.format(_res['cam_id']),
-                                "Data_name": _name,
-                                "Data_type": "string",
-                                "Value": _val,
-                            }
-                        ],
-                        "Timestamp":int(_res['time']),
-                    }
-                    self.tt.publish(mqtt_msg)
-
-                if 'mic_id' in _res:
-                    volume_level = {
-                        "PC_ID": '{0:06d}'.format(msg['pcid']),
-                        "Device_data": [
-                            {
-                                "Device_ID": '{0:06d}'.format(_res['mic_id']),
-                                "Data_name": 'volume level',
-                                "Data_type": "integer",
-                                "Value": int(_res['audio_level']),
-                            }
-                        ],
-                        "Timestamp":int(_res['time']),
-                    }
-
-                    self.tt.publish(volume_level)
-
-                    emotion = {
-                        "PC_ID": '{0:06d}'.format(msg['pcid']),
-                        "Device_data": [
-                            {
-                                "Device_ID": '{0:06d}'.format(_res['mic_id']),
-                                "Data_name": 'emotion type',
-                                "Data_type": "integer",
-                                "Value": int(_res['status']),
-                            }
-                        ],
-                        "Timestamp":int(_res['time']),
-                    }
-                    self.tt.publish(emotion)
-
-                # if DEBUG:
-                #     _res['cam_id'] = bCAM
-                # self._publish(_res, mqtt_msg)
-    
+  
     def process_redis_msg (self, ch, msg):
         #print (ch, msg)
         if ch in self.subscribe_channels:
@@ -293,8 +207,8 @@ class MQTTForwarding(PluginModule):
         if not res is None:
             _res = json.loads(res)
             if 'util_id' in _res:
-                #print ('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
-                #print (_res)
+                print ('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
+                print (_res)
                 _uid = ''
                 if isinstance(_res['util_id'], str): _uid = '{num:0>6}'.format(num=_res['util_id'])
                 if isinstance(_res['util_id'], int): _uid = '{0:06d}'.format(_res['util_id'])
