@@ -126,10 +126,11 @@ class MQTTBroker(object):
     def get_msg (self, dataList):
         pass
 
-    def publish (self, msg):
+    def publish (self, msg, printOut=False):
         # msg['Timestamp'] = int(dt.datetime.timestamp(msg['Timestamp']))
         self.client.publish(self.topic, json.dumps(msg), qos=0, retain=True)
-        print('MQTT message sent : {}'.format(msg))
+        if printOut:
+            print('MQTT message sent : {}'.format(msg))
 
     def close (self):
         self.client.disconnect()
@@ -224,7 +225,7 @@ class MQTTForwarding(PluginModule):
                     ],
                     "Timestamp": int(_res['time']),
                 }
-                if not _uid == '': self.tt.publish(mqtt_msg)
+                if not _uid == '': self.tt.publish(mqtt_msg, printOut=True)
             
             if 'cam_id' in _res:
                 # _res['comfort'] = 0
