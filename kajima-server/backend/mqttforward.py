@@ -217,7 +217,7 @@ class MQTTForwarding(PluginModule):
                     "Device_data": [
                         {
                             "Device_ID": _uid,
-                            "Device_name": 'deviceID_rate',
+                            "Data_name": 'deviceID_rate',
                             "Data_type": "string",
                             "Value": '{}_{}'.format(_res['util_id'], _res['util_rate']),
                         }
