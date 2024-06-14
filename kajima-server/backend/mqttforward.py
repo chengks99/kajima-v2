@@ -126,10 +126,11 @@ class MQTTBroker(object):
     def get_msg (self, dataList):
         pass
 
-    def publish (self, msg):
+    def publish (self, msg,  printOut=False):
         # msg['Timestamp'] = int(dt.datetime.timestamp(msg['Timestamp']))
         self.client.publish(self.topic, json.dumps(msg), qos=0, retain=True)
-        print('MQTT message sent : {}'.format(msg))
+        if printOut:
+            print('MQTT message sent : {}'.format(msg))
 
     def close (self):
         self.client.disconnect()
@@ -210,21 +211,22 @@ class MQTTForwarding(PluginModule):
                 print ('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
                 print (_res)
                 _uid = ''
-                if isinstance(_res['util_id'], str): _uid = '{num:0>6}'.format(num=_res['util_id'])
-                if isinstance(_res['util_id'], int): _uid = '{0:06d}'.format(_res['util_id'])
-                mqtt_msg = {
-                    "PC_ID": '{0:06d}'.format(msg['pcid']),
-                    "Device_data": [
-                        {
-                            "Device_ID": _uid,
-                            "Data_name": 'deviceID_rate',
-                            "Data_type": "string",
-                            "Value": '{}_{}'.format(_res['util_id'], _res['util_rate']),
-                        }
-                    ],
-                    "Timestamp": int(_res['time']),
-                }
-                if not _uid == '': self.tt.publish(mqtt_msg)
+                if isinstance(_res['util_id'], str): _uid = '{num:0>4}'.format(num=_res['util_id'])
+                if isinstance(_res['util_id'], int): _uid = '{0:04d}'.format(_res['util_id'])
+                if _uid in ['7114', '7103', '7008', '7009', '7010', '7021']:
+                    mqtt_msg = {
+                        "PC_ID": '{0:04d}'.format(msg['pcid']),
+                        "Device_data": [
+                            {
+                                "Device_ID": _uid,
+                                "Data_name": 'deviceID_rate',
+                                "Data_type": "string",
+                                "Value": '{}_{}'.format(_res['util_id'], _res['util_rate']),
+                            }
+                        ],
+                        "Timestamp": int(_res['time']),
+                    }
+                    if not _uid == '': self.tt.publish(mqtt_msg, printOut=True)
             
             if 'cam_id' in _res:
                 # _res['comfort'] = 0
