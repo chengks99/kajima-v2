@@ -129,8 +129,7 @@ class MQTTBroker(object):
     def publish (self, msg,  printOut=False):
         # msg['Timestamp'] = int(dt.datetime.timestamp(msg['Timestamp']))
         self.client.publish(self.topic, json.dumps(msg), qos=0, retain=True)
-        if printOut:
-            print('MQTT message sent : {}'.format(msg))
+        logging.debug('MQTT message sent : {}'.format(msg))
 
     def close (self):
         self.client.disconnect()
@@ -208,8 +207,8 @@ class MQTTForwarding(PluginModule):
         if not res is None:
             _res = json.loads(res)
             if 'util_id' in _res:
-                print ('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
-                print (_res)
+                #print ('&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&')
+                #print (_res)
                 _uid = ''
                 if isinstance(_res['util_id'], str): _uid = '{num:0>4}'.format(num=_res['util_id'])
                 if isinstance(_res['util_id'], int): _uid = '{0:04d}'.format(_res['util_id'])
