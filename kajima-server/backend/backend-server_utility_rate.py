@@ -249,11 +249,11 @@ class BackendServer (PluginModule):
                     'name': c[1],
                     'features': self.loading_bytes(c[2]),
                 })
+            self.body_details['fvList'] = _details
             self.redis_conn.set('person.body.features', json2str({'fvList': _details}))
             self.redis_conn.publish('person.body.updates', json2str({'fvList': _details}))
         logging.info('Loaded body features size: {}'.format(len(_details)))
        
-
     # start backend server
     def start (self, **extra_kw):
         self.load_system_configuration(self.args.cfg)
@@ -280,8 +280,6 @@ class BackendServer (PluginModule):
         self.start_thread('housekeep', self.housekeep)
         self.save_info()
         self.start_thread('reset_body', self.reset_body)
-
-
     
     def load_human_api (self):
         args = au.to_namespace(self.cfg)
@@ -318,10 +316,6 @@ class BackendServer (PluginModule):
                 #logging.debug(current_time)
                 pass
             time.sleep(60)
-
-        
-        
-
 
     # redis message listener
     def process_redis_msg (self, ch, msg):
@@ -361,7 +355,6 @@ class BackendServer (PluginModule):
             self.update_face_feature(msg)
             # else:
             #     pass
-
 
     # updating camera status
     def update_camera_status (self, adtype, status):
@@ -479,8 +472,6 @@ class BackendServer (PluginModule):
         decodedArrays = json.loads(encodedNumpyData)
         return decodedArrays['array']
     
-    
-
     def get_base_file (self, path,camID = None):
         #! Hardcoded:
         if 'lookup' in path:
