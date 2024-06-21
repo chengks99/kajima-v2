@@ -10,6 +10,7 @@ sys.path.append(str(scriptpath.parent / 'common'))
 from jsonutils import json2str
 
 import pandas as pd
+import numpy as np
 import datetime as dt
 
 class PandasUtils(object):
@@ -124,6 +125,8 @@ class PandasUtils(object):
 
                     # hid and type checking
                     _utcTime, _data['time'] = self.time_format_conversion(_data['time'])
+                    if isinstance(_data['human_id'], np.int64):
+                        _data['human_id'] = _data['human_id'].item()
                     self.check_hid_in_sql(_data['human_id'], now)
                     self.val_type_conversion(_data)
 
